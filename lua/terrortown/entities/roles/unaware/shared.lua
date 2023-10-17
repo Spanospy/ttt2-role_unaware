@@ -1,7 +1,7 @@
 --TODOS:
 --# Implement all convars
 --# Look into edge cases, eg if a traitor tries to transfer credits to an unaware
---# Unwaware turns into a traitor when killing a high profile role? (Make corresponding cvar)
+--# Ideas for other role hints?
 
 
 if SERVER then
@@ -445,7 +445,7 @@ if CLIENT then
 	end)
 
 	net.Receive("TTT2UnawareNotify", function()
-		EPOP:AddMessage({text = "DEBUG: You're unaware!", color = UNAWARE.color}, "", 6)
+		--EPOP:AddMessage({text = "DEBUG: You're unaware!", color = UNAWARE.color}, "", 6)
 		LocalPlayer().ttt2_unaware = true
 	end)
 
@@ -484,22 +484,7 @@ if CLIENT then
 			  highest_id = math.max(highest_id, v.p)
 			end
 
-			print(tabledump(search))
-			--search.unaware_hint = {img = "vgui/ttt/dynamic/roles/icon_dop.vmt", text = LANG.GetTranslation("ttt_dop_was_dop"), p = highest_id + 1}
 		end
 	end)
 
-end
-
-function tabledump(o)
-	if type(o) == 'table' then
-		local s = '{ '
-		for k,v in pairs(o) do
-			if type(k) ~= 'number' then k = '"'..k..'"' end
-			s = s .. '['..k..'] = ' .. tabledump(v) .. ','
-		end
-		return s .. '} '
-	else
-		return tostring(o)
-	end
 end

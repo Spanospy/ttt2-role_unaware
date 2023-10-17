@@ -9,8 +9,8 @@ L["info_popup_" .. UNAWARE.name] = [[
 L["body_found_" .. UNAWARE.abbr] = "They were Unaware!"
 L["search_role_" .. UNAWARE.abbr] = "This person was Unaware!"
 L["target_" .. UNAWARE.name] = "Unaware"
-L["ttt2_desc_" .. UNAWARE.name] = [[The Unaware is a Traitor who looks like an Innocent to themselves.
-It is up to the other traitors to help them realise their true role.]]
+L["ttt2_desc_" .. UNAWARE.name] = [[The Unaware is a Traitor who is not told they're one.
+It is up to the other traitors to spot this and help them realise their true role.]]
 
 --SETTINGS STRINGS
 L["label_ttt2_unaware_inform_others"] = "Warn players if there's an Unaware at start of round"

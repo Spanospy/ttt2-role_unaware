@@ -8,7 +8,7 @@ CreateConVar("ttt2_unaware_hints_enable", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCV
 CreateConVar("ttt2_unaware_hints_bodies", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
 CreateConVar("ttt2_unaware_hints_knife", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
 CreateConVar("ttt2_unaware_can_be_alone", "1", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
-CreateConVar("ttt2_unaware_friendly_fire_percent", "100", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
+CreateConVar("ttt2_unaware_friendly_fire_percent", "80", {FCVAR_ARCHIVE, FCVAR_NOTFIY, FCVAR_REPLICATED})
 
 if CLIENT then
 	hook.Add("TTT2FinishedLoading", "unaware_devicon", function()

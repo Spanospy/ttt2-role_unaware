@@ -159,7 +159,7 @@ if SERVER then
 		if SpecDM and (ply.IsGhost and ply:IsGhost() or (attacker.IsGhost and attacker:IsGhost())) then return end
 
 
-		if inflictor:GetSubRole() == ROLE_UNAWARE and ply:GetTeam() == TEAM_TRAITOR then --Breaks with things such as knife; GetSubRole is nil?
+		if (inflictor:GetSubRole() == ROLE_UNAWARE and ply:GetTeam() == TEAM_TRAITOR) or (inflictor:GetTeam() == TEAM_TRAITOR and ply:GetSubRole() == ROLE_UNAWARE) then
 			local dmult = GetConVar("ttt2_unaware_friendly_fire_percent"):GetInt()
 			dmginfo:ScaleDamage(0.01 * dmult)
 		end

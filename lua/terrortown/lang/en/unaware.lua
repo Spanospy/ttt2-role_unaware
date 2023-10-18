@@ -46,7 +46,7 @@ L["label_ttt2_unaware_hints_knife"] = "Spawn a knife on the map for each Unaware
 
 L["label_ttt2_unaware_can_be_alone"] = "(UNFINISHED) Allow Unawares to be the only Traitors"
 
-L["label_ttt2_unaware_friendly_fire_percent"] = "Damage dealt against Traitors"
+L["label_ttt2_unaware_friendly_fire_percent"] = "Percentage of damage dealt to / received from Traitors"
 
 -- OTHER ROLE LANGUAGE STRINGS
 L["inform_everyone_unaware"] = "Someone is unaware they're a traitor!"

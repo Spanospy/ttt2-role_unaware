@@ -1,6 +1,7 @@
 --TODOS:
 --# Implement all convars
 --# Look into edge cases, eg if a traitor tries to transfer credits to an unaware
+--# Prevent Unawares from being told via mstack who the jester/swapper is.
 --# Ideas for other role hints?
 
 
@@ -13,7 +14,7 @@ end
 
 function ROLE:PreInitialize()
 	--Innocent's colour:
-    --self.color                    = Color(80, 173, 59, 255)
+	--self.color                    = Color(80, 173, 59, 255)
 	--Unaware's colour:
 	self.color                      = Color(173, 80, 59, 255)
 
@@ -42,7 +43,7 @@ function ROLE:PreInitialize()
 		credits      = 0, -- the starting credits of a specific role
 		togglable    = true, -- option to toggle a role for a client if possible (F1 menu)
 		shopFallback = SHOP_FALLBACK_TRAITOR,
-		random       = 20
+		random       = 15
 	}
 end
 
@@ -50,23 +51,13 @@ function ROLE:Initialize()
 	roles.SetBaseRole(self, ROLE_TRAITOR)
 end
 
-local function MakeAware(ply) --TODO investigate why it doesn't work.
+local function GetUnawareConvarLookups()
 
-	roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = true
-	roles.GetByIndex(ROLE_UNAWARE).unknownTeam = false
+	local ConvarRoles = {ROLE_INNOCENT, ROLE_TRAITOR, ROLE_UNAWARE}
+	local ConvarTeams = {TEAM_INNOCENT, TEAM_TRAITOR, TEAM_TRAITOR}
+	local ConvarColors = {INNOCENT.color, TRAITOR.color, UNAWARE.color}
 
-	ply:UpdateTeam(TEAM_TRAITOR)
-
-	local plyd = ply:GetSubRoleData()
-	ply.is_aware = true
-	if(ConVarExists("ttt_unaware_credits_starting") and GetConVar("ttt_unaware_credits_starting"):GetInt() == 0) then 
-		ply:AddCredits(GetConVar("ttt_traitor_credits_starting"):GetInt()) 
-	end
-	ply:ResetConfirmPlayer()
-	SendFullStateUpdate()
-
-	
-
+	return {roles = ConvarRoles, teams = ConvarTeams, colors = ConvarColors}
 end
 
 local function FakeBuyKnife(ply, knife, is_item, traitors)
@@ -81,18 +72,109 @@ local function FakeBuyKnife(ply, knife, is_item, traitors)
 	net.Send(traitors)
 end
 
-local function CheckKill(victim, attacker, dmginfo)
+local function CheckKillForPromotion(victim, infl, attacker)
+
+	if not (IsValid(attacker) and attacker:IsPlayer()) then return end
+
+	if attacker:GetSubRole() ~= ROLE_UNAWARE then return end
+	if attacker.is_aware then return end
+
+	local roleDataAttacker = attacker:GetSubRoleData()
+	local roleDataVictim = victim:GetSubRoleData()
+
+	local convertFromBigKill = GetConVar("ttt2_unaware_convert_from_bigkill"):GetBool()
+	local convertFromKills = GetConVar("ttt2_unaware_convert_from_kills"):GetInt()
+
+	if convertFromBigKill and roleDataVictim.isPublicRole and roleDataVictim.defaultTeam == TEAM_INNOCENT then
+		ConvertUnaware(attacker, true)
+		SendFullStateUpdate()
+	elseif convertFromKills then
+		--TODO
+	end
+
+end
+
+local function CheckIfLastTraitorDied(victim, infl, attacker)
+	print("LastTraitorTriggered")
+	if not (IsValid(victim) and victim:IsPlayer()) then return end
+	if victim:GetSubRole() == ROLE_UNAWARE then return end --An Unaware doesn't count
+	if victim:GetTeam() == TEAM_TRAITOR then
+		print("Person who died is a traitor, are any others alive?")
+		--Check how many non-unaware traitors are still alive
+		--If it's zero, read what the convar has to say and convert Unawares appropriately
+
+		local plys = player.GetAll()
+		local unawares = {}
+		local traitorLives = false
+
+		for _, ply in ipairs(plys) do
+
+			local rle = ply:GetSubRole()
+
+			if rle == ROLE_UNAWARE and ply:Alive() then
+				table.insert(unawares, ply)
+			end
+
+			if traitorLives == false and rle ~= ROLE_UNAWARE and ply:GetTeam() == TEAM_TRAITOR and ply ~= victim and ply:Alive() then
+				print("Yep.",ply:Nick())
+				traitorLives = true
+			end
+
+		end
+
+		local convertFromDeath = GetConVar("ttt2_unaware_last_traitor_mode"):GetInt()
+
+		if traitorLives == false and convertFromDeath > 0 then
+			print("Nope, Setting timer")
+			timer.Simple(3, function() --Timer to avoid race conditions
+
+				for _, unaware in pairs(unawares) do
+					ConvertUnaware(unaware, convertFromDeath - 1)
+				end
+				SendFullStateUpdate()
+
+			end)
+		end
+	end
+end
+
+function ConvertUnaware(ply, convertToTraitor)
+
+	--Don't do anything if the player has already been converted
+	if ply.is_aware then return end
+
+	--If we're converting to innocent, just change their team.
+	if not convertToTraitor then
+		ply:UpdateTeam(TEAM_INNOCENT)
+	else
+		--If we're converting to traitor, try to just change things on their client to see themselves as a traitor. (ie ply.is_aware = true)
+		ply.is_aware = true
+		--Also, give them credits if they start with none.
+		if(GetConVar("ttt_unaware_credits_starting"):GetInt() == 0) then 
+			ply:AddCredits(GetConVar("ttt_traitor_credits_starting"):GetInt()) 
+		end
+		net.Start('TTT2UnawareConvertNetMsg')
+		net.Send(ply)
+		timer.Simple(1, function()
+			LANG.Msg(ply, "inform_unaware", nil, MSG_MSTACK_ROLE)
+		end)
+	end
+	ply:ResetConfirmPlayer()
 end
 
 if SERVER then
+
+	--Global variables
+	local GV_UnawareDistribution = 0
+
 
 	hook.Add("TTTBeginRound", "UnawareBeginRoundForServer", function()
 
 		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = false
 		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = true
 
-		--net.Start('TTT2UnawareResetNetMsg')
-		--net.Broadcast()
+		net.Start('TTT2UnawareResetNetMsg')
+		net.Broadcast()
 
 		--Ironically, We need to tell clients if they're an Unaware in order for some client-sided behaviour to work.
 		for _, ply in ipairs(player.GetAll()) do
@@ -100,6 +182,7 @@ if SERVER then
 				net.Start("TTT2UnawareNotify")
 				net.WriteBool(true)
 				net.Send(ply)
+				ply.ttt2_unaware = true
 			end
 		end
 
@@ -124,6 +207,62 @@ if SERVER then
 
 		
 
+	end)
+
+	hook.Add("TTT2ModifyFinalRoles", "TTT2UnawareContribution", function(finalroles)
+
+		if GetConVar("ttt2_unaware_is_extra"):GetBool() == false then return end
+
+		--Stores the indexes of all innocents for later, potentially
+		local innocents = {}
+
+		GV_UnawareDistribution = 0
+
+		print("Final role count:")
+		local rlekeys = table.GetKeys(finalroles)
+		print(#rlekeys)
+
+		for ply, rle in pairs(finalroles) do
+
+			print("ply: ",ply,"| Role: ",rle)
+
+			if rle == ROLE_UNAWARE then
+				print("+1 to Unawares")
+				GV_UnawareDistribution = GV_UnawareDistribution + 1
+			end
+
+			if rle == ROLE_INNOCENT then
+				print("+1 to Innocents")
+				table.insert(innocents, ply)
+			end
+		end
+		print("Done checking roles.")
+
+		if GV_UnawareDistribution > 0 then
+			print("Re-rolls required.")
+			--For each Unaware, re-roll one of the innocents into a plain traitor.
+			for i=1, GV_UnawareDistribution do
+				print("Attempting re-roll")
+				if #innocents then
+					local ino = math.random(#innocents)
+					finalroles[innocents[ino]] = ROLE_TRAITOR
+					table.remove(innocents, ino)
+				end
+			end
+		end
+		print("End.")
+	end)
+
+	hook.Add("TTTAModifyRolesTable", "TTTAUnawareRoundInfo", function(rls, printrls)
+
+		print("Modify role count?")
+
+		if GetConVar("ttt2_unaware_is_counted_as_inno"):GetBool() == true then 
+			print("Yep. # of unawares:",GV_UnawareDistribution)
+			rls[ROLE_TRAITOR] = rls[ROLE_TRAITOR] - GV_UnawareDistribution
+			rls[ROLE_INNOCENT] = rls[ROLE_INNOCENT] + GV_UnawareDistribution
+		end
+		
 	end)
 
 	hook.Add("TTT2TellTraitors", "TTT2UnawareHideTraitorMessage", function(traitornicks, ply)
@@ -179,14 +318,14 @@ if SERVER then
 	hook.Add("TTT2ModifyRadarRole", "TTT2ModifyRadarRole4Unaware", function(ply, target)
 		local visible_to_traitors = GetConVar("ttt2_unaware_visible_to_traitors"):GetInt()
 		if visible_to_traitors == 0 then
-			if ply:GetTeam() == TEAM_TRAITOR and target:GetSubRole() == ROLE_UNAWARE then
+			if ply:GetTeam() == TEAM_TRAITOR and target:GetSubRole() == ROLE_UNAWARE and not ply.is_aware then
 				return ROLE_INNOCENT, TEAM_INNOCENT
 			end
 		end
 	end)
 
 	hook.Add("TTT2AvoidTeamChat", "TTT2UnawareJamTraitorChat", function(sender, tm, msg)
-		if GetConVar("ttt2_unaware_jam_team_comms"):GetBool() == 0 then return end
+		if GetConVar("ttt2_unaware_jam_team_comms"):GetBool() == false then return end
 		if tm == TEAM_TRAITOR then
 			for _, unaware in ipairs(player.GetAll()) do
 				if unaware:IsTerror() and unaware:Alive() and unaware:GetSubRole() == ROLE_UNAWARE and not unaware.is_aware then
@@ -200,7 +339,7 @@ if SERVER then
 
 	hook.Add("TTT2CanUseVoiceChat", "TTT2UnawareJamTraitorVoice", function(speaker, isTeamVoice)
 
-		if GetConVar("ttt2_unaware_jam_team_comms"):GetBool() == 0 then return end
+		if GetConVar("ttt2_unaware_jam_team_comms"):GetBool() == false then return end
 
 		-- only jam traitor team voice
 		if not isTeamVoice or not IsValid(speaker) or speaker:GetTeam() ~= TEAM_TRAITOR then return end
@@ -218,12 +357,10 @@ if SERVER then
 
 		if corpse and corpse.was_role == ROLE_UNAWARE then
 			local corpse_convar = GetConVar("ttt2_unaware_corpse_reveal_mode"):GetInt() + 1
-			local corpse_role = {ROLE_INNOCENT, ROLE_TRAITOR, ROLE_UNAWARE}
-			local corpse_team = {TEAM_INNOCENT, TEAM_TRAITOR, TEAM_TRAITOR}
-			local corpse_color = {INNOCENT.color, TRAITOR.color, UNAWARE.color}
-			corpse.was_role = corpse_role[corpse_convar]
-			corpse.was_team = corpse_team[corpse_convar]
-			corpse.role_color = corpse_color[corpse_convar]
+			local convar_ref = GetUnawareConvarLookups()
+			corpse.was_role = convar_ref.roles[corpse_convar]
+			corpse.was_team = convar_ref.teams[corpse_convar]
+			corpse.role_color = convar_ref.colors[corpse_convar]
 			corpse.is_unaware_corpse = true
 		end
 	end)
@@ -232,12 +369,10 @@ if SERVER then
 
 		if IsValid(confirmed) and corpse and corpse.is_unaware_corpse then
 			confirmed:ConfirmPlayer(true)
-			--TODO deduplicate into function
 			local corpse_convar = GetConVar("ttt2_unaware_corpse_reveal_mode"):GetInt() + 1
-			local corpse_role = {ROLE_INNOCENT, ROLE_TRAITOR, ROLE_UNAWARE}
-			local corpse_team = {TEAM_INNOCENT, TEAM_TRAITOR, TEAM_TRAITOR}
-			SendRoleListMessage(corpse_role[corpse_convar], corpse_team[corpse_convar], {confirmed:EntIndex()})
-			corpse.was_role = corpse_role[corpse_convar]
+			local convar_ref = GetUnawareConvarLookups()
+			SendRoleListMessage(convar_ref.roles[corpse_convar], convar_ref.teams[corpse_convar], {confirmed:EntIndex()})
+			corpse.was_role = convar_ref.roles[corpse_convar]
 			events.Trigger(EVENT_BODYFOUND, finder, corpse)
 			return false
 		end
@@ -258,6 +393,7 @@ if SERVER then
 			net.Start("TTT2UnawareNotify")
 			net.WriteBool(false)
 			net.Send(ply)
+			ply.ttt2_unaware = false
 		end
 
 	end)
@@ -268,9 +404,17 @@ if SERVER then
 		if ply:GetSubRole() == ROLE_UNAWARE then
 			for ply_i in pairs(tbl) do
 				if ply == ply_i then
-					tbl[ply_i] = {ROLE_INNOCENT, TEAM_INNOCENT}
+					if ply.is_aware then
+						tbl[ply_i] = {ROLE_TRAITOR, TEAM_TRAITOR}
+					else
+						tbl[ply_i] = {ROLE_INNOCENT, TEAM_INNOCENT}
+					end
 				elseif ply_i:GetTeam() == TEAM_TRAITOR then
-					tbl[ply_i] = {ROLE_NONE, TEAM_NONE}
+					if ply.is_aware then
+						tbl[ply_i] = {ROLE_TRAITOR, TEAM_TRAITOR}
+					else
+						tbl[ply_i] = {ROLE_NONE, TEAM_NONE}
+					end
 				end
 			end
 
@@ -283,6 +427,16 @@ if SERVER then
 					local visible_team = {TEAM_NONE, TEAM_TRAITOR, TEAM_TRAITOR}
 					tbl[ply_i] = {visible_role[visible], visible_team[visible]}
 				end
+			end
+		end
+	end)
+
+	hook.Add("TTT2JesterModifySyncedRole", "TTT2UnawareJesterSync", function(ply, syncPly)
+		if ply:GetSubRole() == ROLE_UNAWARE then
+			if ply.is_aware then
+				return {ROLE_JESTER, TEAM_JESTER}
+			else
+				return {ROLE_NONE, TEAM_NONE}
 			end
 		end
 	end)
@@ -318,23 +472,24 @@ if SERVER then
 
 	end)
 
-	hook.Add("PlayerDeath", "UnawareKill", function(victim, infl, attacker)
+	hook.Add("PlayerDeath", "UnawareDeathCheck", function(victim, infl, attacker)
 
-		if GetConVar("ttt2_unaware_convert_from_bigkill"):GetBool() == 0 then return end
+		local convertFromBigKill = GetConVar("ttt2_unaware_convert_from_bigkill"):GetBool()
+		local convertFromKills = GetConVar("ttt2_unaware_convert_from_kills"):GetInt()
+		local convertFromDeath = GetConVar("ttt2_unaware_last_traitor_mode"):GetInt()
+
+		if convertEnabled == false and convertFromDeath == 0 then return end
 
 		if not IsValid(victim) then return end
-		if not (IsValid(attacker) and attacker:IsPlayer()) then return end
 
-		if attacker:GetSubRole() ~= ROLE_UNAWARE then return end
-		
-		local roleDataAttacker = attacker:GetSubRoleData()
-		local roleDataVictim = victim:GetSubRoleData()
-
-		if roleDataVictim.isPublicRole and roleDataVictim.defaultTeam == TEAM_INNOCENT then --Disabled as doesn't work.
-			--MakeAware(attacker)
-			--net.Start('TTT2UnawareConvertNetMsg')
-			--net.Broadcast()
+		if convertFromBigKill or convertFromKills > 0 then
+			CheckKillForPromotion(victim, infl, attacker)
 		end
+
+		if convertFromDeath then
+			CheckIfLastTraitorDied(victim, infl, attacker)
+		end
+
 	end)
 
 --	hook.Add("TTTKarmaGivePenalty", "TTT2UnawareTeamkillKarma", function(ply, penalty, victim)
@@ -395,11 +550,6 @@ if CLIENT then
 		--	label = "ttt2_unaware_convert_desc"
 		--})
 
-		--form:MakeCheckBox({
-		--	serverConvar = "ttt2_unaware_convert_from_bigkill",
-		--	label = "label_ttt2_unaware_convert_from_bigkill"
-		--})
-
 		local hintMaster
 
 		hintMaster = form:MakeCheckBox({
@@ -430,12 +580,37 @@ if CLIENT then
 			label = "label_ttt2_unaware_can_be_alone"
 		})
 
+		form:MakeCheckBox({
+			serverConvar = "ttt2_unaware_is_extra",
+			label = "label_ttt2_unaware_is_extra"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_unaware_is_counted_as_inno",
+			label = "label_ttt2_unaware_is_counted_as_inno"
+		})
+
 		form:MakeSlider({
 			serverConvar = "ttt2_unaware_friendly_fire_percent",
 			label = "label_ttt2_unaware_friendly_fire_percent",
 			min = 0,
 			max = 100,
 			decimal = 0
+		})
+
+		form:MakeComboBox({
+			serverConvar = "ttt2_unaware_last_traitor_mode",
+			label = "label_ttt2_unaware_last_traitor_mode",
+			choices = {
+				{value = "0", title = LANG.GetTranslation("option_ttt2_unaware_last_traitor_mode_0")},
+				{value = "1", title = LANG.GetTranslation("option_ttt2_unaware_last_traitor_mode_1")},
+				{value = "2", title = LANG.GetTranslation("option_ttt2_unaware_last_traitor_mode_2")}
+			}
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_unaware_convert_from_bigkill",
+			label = "label_ttt2_unaware_convert_from_bigkill"
 		})
 
 	end
@@ -450,18 +625,17 @@ if CLIENT then
 	end)
 
 	-- Set 'true role' flags for Client
-	local function RecvConvertUnaware()
+	net.Receive('TTT2UnawareConvertNetMsg', function()
 		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = true
 		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = false
-	end
-	net.Receive('TTT2UnawareConvertNetMsg', RecvConvertUnaware)
+		LocalPlayer().is_aware = true
+	end)
 
 	-- Reset 'true role' flags for Client
-	local function RecvResetUnaware()
+	net.Receive('TTT2UnawareResetNetMsg', function()
 		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = false
 		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = true
-	end
-	net.Receive('TTT2UnawareResetNetMsg', RecvResetUnaware)
+	end)
 
 	hook.Add("TTT2PreventAccessShop", "TTT2UnawareShopAccess", function(ply)
 

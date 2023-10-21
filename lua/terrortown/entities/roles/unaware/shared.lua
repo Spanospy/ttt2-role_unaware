@@ -167,14 +167,23 @@ if SERVER then
 	--Global variables
 	local GV_UnawareDistribution = 0
 
-
-	hook.Add("TTTBeginRound", "UnawareBeginRoundForServer", function()
+	hook.Add("TTTPrepareRound", "UnawarePrepareRound", function()
 
 		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = false
 		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = true
 
+		for _, unaware in ipairs(player.GetAll()) do
+			unaware.ttt2_unaware = false
+			unaware.is_aware = false
+		end
+
 		net.Start('TTT2UnawareResetNetMsg')
 		net.Broadcast()
+		
+	end)
+
+
+	hook.Add("TTTBeginRound", "UnawareBeginRound", function()
 
 		--Ironically, We need to tell clients if they're an Unaware in order for some client-sided behaviour to work.
 		for _, ply in ipairs(player.GetAll()) do
@@ -192,15 +201,28 @@ if SERVER then
 		if inform_mode > 0 then 
 
 			local plys = player.GetAll()
+			local UnawareInPlay = false
+			
+			--Check an unaware is in play
+			for _, ply in ipairs(plys) do
+				local rle = ply:GetSubRole()
 
-			for i = 1, #plys do
-
-				if inform_mode >= 1 and plys[i]:GetTeam() == TEAM_TRAITOR and plys[i]:GetSubRole() ~= ROLE_UNAWARE then
-					LANG.Msg(plys[i], "inform_traitors_unaware", nil, MSG_MSTACK_WARN)
-				elseif inform_mode >= 2 then
-					LANG.Msg(plys[i], "inform_everyone_unaware", nil, MSG_MSTACK_WARN)
+				if rle == ROLE_UNAWARE and ply:Alive() then
+					UnawareInPlay = true
+					break
 				end
+			end
 
+			if UnawareInPlay == true then
+				for _, ply in ipairs(plys) do
+
+					if inform_mode >= 1 and ply:GetTeam() == TEAM_TRAITOR and ply:GetSubRole() ~= ROLE_UNAWARE then
+						LANG.Msg(ply, "inform_traitors_unaware", nil, MSG_MSTACK_WARN)
+					elseif inform_mode >= 2 then
+						LANG.Msg(ply, "inform_everyone_unaware", nil, MSG_MSTACK_WARN)
+					end
+	
+				end
 			end
 		
 		end
@@ -635,16 +657,21 @@ if CLIENT then
 	net.Receive('TTT2UnawareResetNetMsg', function()
 		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = false
 		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = true
+
+		local lply = LocalPlayer()
+		lply.ttt2_unaware = false
+		lply.is_aware = false
+
 	end)
 
-	hook.Add("TTT2PreventAccessShop", "TTT2UnawareShopAccess", function(ply)
-
-		if ply:GetSubRole() ~= ROLE_UNAWARE then return end
-
-		if ply.is_aware then return false end
-		return true
-		
-	end)
+	--hook.Add("TTT2PreventAccessShop", "TTT2UnawareShopAccess", function(ply)
+    --
+	--	if ply:GetSubRole() ~= ROLE_UNAWARE then return end
+    --
+	--	if ply.is_aware then return false end
+	--	return true
+	--	
+	--end)
 
 	hook.Add("TTTBodySearchPopulate", "TTT2UnawareDisplayHint", function(search, raw)
 		local lply = LocalPlayer()

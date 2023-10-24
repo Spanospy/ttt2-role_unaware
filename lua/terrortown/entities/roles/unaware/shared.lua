@@ -314,6 +314,11 @@ if SERVER then
 
 	end)
 
+	hook.Add("TTT2JesterShouldShow","TTT2UnawareDontShowJester", function(ply)
+		if ply:GetSubRole() ~= ROLE_UNAWARE then return end
+		return false
+	end)
+
 	hook.Add("PlayerTakeDamage", "UnawareTeamDamage", function(ply, inflictor, killer, amount, dmginfo)
 
 		if not IsValid(ply) or not IsValid(attacker) or not attacker:IsPlayer() then return end
@@ -335,9 +340,8 @@ if SERVER then
 	end)
 
 
-	--Code mostly ripped from Spy role :)
 
-	hook.Add("TTT2ModifyRadarRole", "TTT2ModifyRadarRole4Unaware", function(ply, target)
+	hook.Add("TTT2ModifyRadarRole", "TTT2UnawareModifyRadarRole", function(ply, target)
 		local visible_to_traitors = GetConVar("ttt2_unaware_visible_to_traitors"):GetInt()
 		if visible_to_traitors == 0 then
 			if ply:GetTeam() == TEAM_TRAITOR and target:GetSubRole() == ROLE_UNAWARE and not ply.is_aware then
@@ -400,7 +404,6 @@ if SERVER then
 		end
 	end)
 
-	--Spy plagarism end
 
 
 

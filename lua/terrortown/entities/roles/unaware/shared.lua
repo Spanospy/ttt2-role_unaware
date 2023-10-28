@@ -1,7 +1,8 @@
 --TODOS:
 --# Implement all convars
 --# Look into edge cases, eg if a traitor tries to transfer credits to an unaware
---# Prevent Unawares from being told via mstack who the jester/swapper is.
+--# Figure out why Unaware can't pick up credits from bodies
+--# Figure out why Unaware attempting to buy from shop does nothing
 --# Ideas for other role hints?
 
 
@@ -23,7 +24,7 @@ function ROLE:PreInitialize()
 	self.score.killsMultiplier      = 4
 	self.score.teamKillsMultiplier  = -5
 	self.preventFindCredits         = false --TODO Broken???????
-	self.preventKillCredits         = false
+	self.preventKillCredits         = false --TODO verify this works properly when an unaware is not "innocent"
 	self.preventTraitorAloneCredits = true
 	self.preventWin                 = false
 	self.unknownTeam                = true
@@ -351,6 +352,7 @@ if SERVER then
 		if not isTeamVoice or not IsValid(speaker) or speaker:GetTeam() ~= TEAM_TRAITOR then return end
 
 		-- ToDo prevent team voice overlay from showing on the speaking players screen
+		-- TODO verify this ToDo (The fun of using code you didn't make :D)
 		for _, unaware in ipairs(player.GetAll()) do
 			if unaware:IsTerror() and unaware:Alive() and unaware:GetSubRole() == ROLE_UNAWARE and not unaware.is_aware then
 				LANG.Msg(speaker, "ttt2_teamvoice_jammed_" .. UNAWARE.name , nil, MSG_CHAT_WARN)

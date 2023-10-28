@@ -48,7 +48,7 @@ L["label_ttt2_unaware_is_counted_as_inno"] = "[Round Info addon] - Unawares cont
 
 L["label_ttt2_unaware_friendly_fire_percent"] = "Percentage of damage dealt to / received from Traitors"
 
-L["label_ttt2_unaware_last_traitor_mode"] = "(UNFINISHED) If Unawares are the only traitors left: "
+L["label_ttt2_unaware_last_traitor_mode"] = "If Unawares are the only traitors left: "
 L["option_ttt2_unaware_last_traitor_mode_0"] = "Do nothing"
 L["option_ttt2_unaware_last_traitor_mode_1"] = "Unawares turn into Innocents"
 L["option_ttt2_unaware_last_traitor_mode_2"] = "Unawares turn into Traitors"

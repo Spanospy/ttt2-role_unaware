@@ -178,6 +178,10 @@ if SERVER then
 
 	hook.Add("TTTBeginRound", "UnawareBeginRound", function()
 
+		if GetRoundState() ~= ROUND_ACTIVE then
+			return
+		end
+
 		--Ironically, We need to tell clients if they're an Unaware in order for some client-sided behaviour to work.
 		for _, ply in ipairs(player.GetAll()) do
 			if ply:GetSubRole() == ROLE_UNAWARE then
@@ -468,22 +472,26 @@ if SERVER then
 		if WEPS.GetClass(wep) ~= "ttt_unaware_knife_pickup" then return end
 
 		if ply == wep.unaware then
+			
+			--Check if we're faking a purchase for this knife
+			local HintsEnabled = GetConVar("ttt2_unaware_hints_enable"):GetBool()
+			local FakeBuyKnifeOnPickup = GetConVar("ttt2_unaware_hints_knife"):GetBool()
 
-			--fake-buy a real knife instead and remove the wep
-			--TODO convar for whether picking up the knife fakes a buy alert
+			if HintsEnabled and FakeBuyKnifeOnPickup then 
+				local knife = "weapon_ttt_knife"
+				local is_item = items.IsItem(knife)
 
-			local traitors = {}
-			for _, ply in ipairs(player.GetAll()) do
-				if ply:IsActive() and ply:GetTeam() == TEAM_TRAITOR and ply:GetSubRole() ~= ROLE_UNAWARE then
-					traitors[#traitors + 1] = ply
+				local traitors = {}
+				for _, ply in ipairs(player.GetAll()) do
+					if ply:IsActive() and ply:GetTeam() == TEAM_TRAITOR and ply:GetSubRole() ~= ROLE_UNAWARE then
+						traitors[#traitors + 1] = ply
+					end
 				end
+
+				FakeBuyKnife(ply, knife, is_item, traitors) 
 			end
-			local knife = "weapon_ttt_knife"
-			local is_item = items.IsItem(knife)
 
-			FakeBuyKnife(ply, knife, is_item, traitors)
-
-
+			--Give them a real knife and remove the placeholder one
 			ply:GiveEquipmentWeapon(knife)
 			wep:Remove()
 
@@ -572,9 +580,7 @@ if CLIENT then
 		--	label = "ttt2_unaware_convert_desc"
 		--})
 
-		local hintMaster
-
-		hintMaster = form:MakeCheckBox({
+		local hintMaster = form:MakeCheckBox({
 			serverConvar = "ttt2_unaware_hints_enable",
 			label = "label_ttt2_unaware_hints_enable"
 		})
@@ -591,10 +597,16 @@ if CLIENT then
 			master = hintMaster
 		})
 
-		form:MakeCheckBox({
+		local knifeMaster = form:MakeCheckBox({
 			serverConvar = "ttt2_unaware_hints_knife",
 			label = "label_ttt2_unaware_hints_knife",
 			master = hintMaster
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_unaware_hints_knife_fakebuy",
+			label = "label_ttt2_unaware_hints_knife_fakebuy",
+			master = knifeMaster
 		})
 
 		form:MakeCheckBox({
@@ -642,11 +654,14 @@ if CLIENT then
 	end)
 
 	net.Receive("TTT2UnawareNotify", function()
-		--EPOP:AddMessage({text = "DEBUG: You're unaware!", color = UNAWARE.color}, "", 6)
-		LocalPlayer().ttt2_unaware = true
+
+		local isUnaware = net.ReadBool()
+
+		--if isUnaware then EPOP:AddMessage({text = "DEBUG: You're unaware!", color = UNAWARE.color}, "", 6) end
+		LocalPlayer().ttt2_unaware = isUnaware
 	end)
 
-	-- Set 'true role' flags for Client
+	-- Set 'true role' flags for Client & notify
 	net.Receive('TTT2UnawareConvertNetMsg', function()
 
 		unaware_role = roles.GetByIndex(ROLE_UNAWARE)
@@ -655,7 +670,7 @@ if CLIENT then
 		LocalPlayer().is_aware = true
 
 		--MSG_MSTACK_ROLE gets the wrong colour at this time, so we bypass using LANG.Msg and add the message ourselves.
-		text = LANG.GetTranslation("inform_unaware")
+		local text = LANG.GetTranslation("inform_unaware")
 		MSTACK:AddColoredBgMessage(text, unaware_role.color)
 		print("[TTT2] Role:	" .. text)
 
@@ -663,8 +678,10 @@ if CLIENT then
 
 	-- Reset 'true role' flags for Client
 	net.Receive('TTT2UnawareResetNetMsg', function()
-		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = false
-		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = true
+
+		unaware_role = roles.GetByIndex(ROLE_UNAWARE)
+		unaware_role.isOmniscientRole = false
+		unaware_role.unknownTeam = true
 
 		local lply = LocalPlayer()
 		lply.ttt2_unaware = false

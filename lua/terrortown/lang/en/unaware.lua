@@ -39,6 +39,7 @@ L["option_ttt2_unaware_hints_bodies_2"] = "On Traitor bodies"
 L["option_ttt2_unaware_hints_bodies_3"] = "On Traitor bodies and bodies with Traitor DNA"
 
 L["label_ttt2_unaware_hints_knife"] = "Spawn a knife on the map for each Unaware to find"
+L["label_ttt2_unaware_hints_knife_fakebuy"] = "Unawares fake a purchase when they pick up their knife"
 
 L["label_ttt2_unaware_can_be_alone"] = "(UNFINISHED) Unawares can be the only Traitors at start"
 

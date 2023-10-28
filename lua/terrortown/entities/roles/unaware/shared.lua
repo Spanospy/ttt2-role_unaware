@@ -648,12 +648,16 @@ if CLIENT then
 
 	-- Set 'true role' flags for Client
 	net.Receive('TTT2UnawareConvertNetMsg', function()
-		roles.GetByIndex(ROLE_UNAWARE).isOmniscientRole = true
-		roles.GetByIndex(ROLE_UNAWARE).unknownTeam = false
+
+		unaware_role = roles.GetByIndex(ROLE_UNAWARE)
+		unaware_role.isOmniscientRole = true
+		unaware_role.unknownTeam = false
 		LocalPlayer().is_aware = true
-		timer.Simple(0.6, function() --Timer is needed here otherwise they might get the message while MSTACK thinks they're innocent, resulting in a green pop-up.
-			LANG.ProcessMsg("inform_unaware", nil, MSG_MSTACK_ROLE)
-		end)
+
+		--MSG_MSTACK_ROLE gets the wrong colour at this time, so we bypass using LANG.Msg and add the message ourselves.
+		text = LANG.GetTranslation("inform_unaware")
+		MSTACK:AddColoredBgMessage(text, unaware_role.color)
+		print("[TTT2] Role:	" .. text)
 
 	end)
 

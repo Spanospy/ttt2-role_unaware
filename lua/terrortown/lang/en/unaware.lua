@@ -57,6 +57,9 @@ L["option_ttt2_unaware_last_traitor_mode_2"] = "Unawares turn into Traitors"
 L["label_ttt2_unaware_convert_from_bigkill"] = "Unawares turn into Traitors after killing high-value players (eg: Detectives)"
 L["label_ttt2_unaware_convert_from_kills"] = "(UNFINISHED) Unawares turn into traitors after killing this many innocents: "
 
+L["label_ttt2_unaware_search_credits"] = "Unawares can pick up credits from bodies while \"innocent\""
+L["label_ttt2_unaware_search_credits_notify"] = "Unawares receive alerts when picking up credits from bodies while \"innocent\""
+
 -- OTHER ROLE LANGUAGE STRINGS
 L["inform_everyone_unaware"] = "Someone is unaware they're a traitor!"
 L["inform_traitors_unaware"] = [[One of your comrades is unaware they're a traitor. 

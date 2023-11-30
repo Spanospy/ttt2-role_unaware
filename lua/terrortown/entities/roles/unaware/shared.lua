@@ -4,6 +4,7 @@
 --# Figure out why Unaware can't pick up credits from bodies
 --# Figure out why Unaware attempting to buy from shop does nothing
 --# Ideas for other role hints?
+--# Prevent all traitor-specific messages from being delivered to an Unaware if they're not aware.
 
 
 if SERVER then
@@ -23,8 +24,8 @@ function ROLE:PreInitialize()
 	self.surviveBonus               = 0
 	self.score.killsMultiplier      = 4
 	self.score.teamKillsMultiplier  = -5
-	self.preventFindCredits         = false --TODO Broken???????
-	self.preventKillCredits         = false --TODO verify this works properly when an unaware is not "innocent"
+	self.preventFindCredits         = false
+	self.preventKillCredits         = false
 	self.preventTraitorAloneCredits = true
 	self.preventWin                 = false
 	self.unknownTeam                = true
@@ -41,11 +42,12 @@ function ROLE:PreInitialize()
 		pct          = 0.15,
 		maximum      = 1,
 		minPlayers   = 7,
+		random       = 15,
 		traitorButton = 1, -- shouldn't take effect until they've realised their role.
 		credits      = 0,
+		creditsAwardDeadEnable = false,
 		togglable    = true,
-		shopFallback = SHOP_FALLBACK_TRAITOR,
-		random       = 15
+		shopFallback = SHOP_FALLBACK_TRAITOR
 	}
 end
 
@@ -138,8 +140,8 @@ end
 
 function ConvertUnaware(ply, convertToTraitor)
 
-	--Don't do anything if the player has already been converted
-	if ply.is_aware then return end
+	--Don't do anything if the player has already been converted or not an unaware
+	if ply.is_aware or ply:GetSubRole() ~= ROLE_UNAWARE then return end
 
 	--If we're converting to innocent, just change their team.
 	if convertToTraitor == 0 then
@@ -365,6 +367,38 @@ if SERVER then
 		end
 	end)
 
+	hook.Add("TTT2GiveFoundCredits", "TTT2UnawareCredits", function(ply, rag)
+
+		--logic for handling credit transfer when Unaware is not visibly a traitor
+
+		if ply:GetSubRole() == ROLE_UNAWARE and not ply.is_aware then
+
+			--Check if corpse has credits
+			local corpseNick = CORPSE.GetPlayerNick(rag)
+			local credits = CORPSE.GetCredits(rag, 0)
+			if credits == 0 then return false end
+
+			--check if Unaware can take these credits
+			local canTakeCredits = GetConVar("ttt2_unaware_search_credits"):GetBool()
+			if canTakeCredits == false then return false end
+
+			--check if credits should be taken without them knowing
+			local creditAlert = GetConVar("ttt2_unaware_search_credits_notify"):GetBool()
+			if creditAlert == false then
+				--To avoid the alert, we do GiveFoundCredits's job without LANG.Msg
+				ply:AddCredits(credits)
+				CORPSE.SetCredits(rag, 0)
+
+				ServerLog(ply:Nick() .. " took " .. credits .. " credits from the body of " .. corpseNick .. "\n")
+				events.Trigger(EVENT_CREDITFOUND, ply, rag, credits)
+
+				--As we've done GiveFoundCredit's job, prevent it from trying the transfer we already did
+				--This doesn't matter though, as credits on corpse is now 0 and so it will not do a transfer.
+				return false
+			end
+		end
+	end)
+
 	hook.Add("TTTCanSearchCorpse", "TTT2UnawareChangeCorpse", function(ply, corpse)
 
 		if corpse and corpse.was_role == ROLE_UNAWARE then
@@ -392,17 +426,29 @@ if SERVER then
 
 	hook.Add("TTT2CheckCreditAward", "TTT2UnawareKillCredits", function(victim, attacker) 
 
-		--NOTE: this is for when an Unaware (who knows they're a traitor) kills a public role.
-		--It does NOT handle receiving credits from bodies.
+		--if attacker is on team traitor, and an unaware is not aware yet, return false.
+		--TODO make convar
 
 		if not IsValid(attacker) or not attacker:IsPlayer() then return end
 		if SpecDM and (attacker.IsGhost and attacker:IsGhost()) then return end
-		if attacker:GetSubRole() ~= ROLE_UNAWARE then return end
 
-		if attacker.is_aware then 
-			return
-		else
-			return false
+		if attacker:GetTeam() == TEAM_TRAITOR then
+
+			local CanAward = true
+
+			local plys = player.GetAll()
+			for i = 1, #plys do
+				local v = plys[i]
+				if v:GetSubRole() == ROLE_UNAWARE then
+					--Check if aware
+					if v.is_aware == false then
+						CanAward = false
+					end
+				end
+			end
+
+			if not CanAward then return false end
+
 		end
 
 	end)
@@ -438,6 +484,12 @@ if SERVER then
 				elseif ply_i:GetTeam() == TEAM_TRAITOR then
 					if ply.is_aware then
 						tbl[ply_i] = {ROLE_TRAITOR, TEAM_TRAITOR}
+					else
+						tbl[ply_i] = {ROLE_NONE, TEAM_NONE}
+					end
+				elseif ply_i:GetTeam() == TEAM_JESTER then
+					if ply.is_aware then
+						tbl[ply_i] = {ROLE_JESTER, TEAM_JESTER}
 					else
 						tbl[ply_i] = {ROLE_NONE, TEAM_NONE}
 					end
@@ -645,6 +697,17 @@ if CLIENT then
 		form:MakeCheckBox({
 			serverConvar = "ttt2_unaware_convert_from_bigkill",
 			label = "label_ttt2_unaware_convert_from_bigkill"
+		})
+
+		local searchMaster = form:MakeCheckBox({
+			serverConvar = "ttt2_unaware_search_credits",
+			label = "label_ttt2_unaware_search_credits"
+		})
+
+		form:MakeCheckBox({
+			serverConvar = "ttt2_unaware_search_credits_notify",
+			label = "label_ttt2_unaware_search_credits_notify",
+			master = searchMaster
 		})
 
 	end

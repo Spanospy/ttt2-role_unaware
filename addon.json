@@ -1,6 +1,6 @@
 {
 	"title"		:	"[TTT2] Unaware [ROLE]",
-	"type"		:	"ServerContent",
+	"type"		:	"gamemode",
     "tags"		:	[ "roleplay", "fun" ],
     "ignore"    : []
 }

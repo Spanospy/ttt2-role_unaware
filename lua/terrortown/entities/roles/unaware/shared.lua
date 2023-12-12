@@ -216,9 +216,9 @@ if SERVER then
 				for _, ply in ipairs(plys) do
 
 					if inform_mode >= 1 and ply:GetTeam() == TEAM_TRAITOR and ply:GetSubRole() ~= ROLE_UNAWARE then
-						LANG.Msg(ply, "inform_traitors_unaware", nil, MSG_MSTACK_WARN)
+						LANG.Msg(ply, "unaware_inform_traitors", nil, MSG_MSTACK_WARN)
 					elseif inform_mode >= 2 then
-						LANG.Msg(ply, "inform_everyone_unaware", nil, MSG_MSTACK_WARN)
+						LANG.Msg(ply, "unaware_inform_everyone", nil, MSG_MSTACK_WARN)
 					end
 	
 				end
@@ -733,7 +733,7 @@ if CLIENT then
 		LocalPlayer().is_aware = true
 
 		--MSG_MSTACK_ROLE gets the wrong colour at this time, so we bypass using LANG.Msg and add the message ourselves.
-		local text = LANG.GetTranslation("inform_unaware")
+		local text = LANG.GetTranslation("unaware_inform_self")
 		MSTACK:AddColoredBgMessage(text, unaware_role.color)
 		print("[TTT2] Role:	" .. text)
 

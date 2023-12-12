@@ -54,18 +54,18 @@ L["option_ttt2_unaware_last_traitor_mode_0"] = "Do nothing"
 L["option_ttt2_unaware_last_traitor_mode_1"] = "Unawares turn into Innocents"
 L["option_ttt2_unaware_last_traitor_mode_2"] = "Unawares turn into Traitors"
 
-L["label_ttt2_unaware_convert_from_bigkill"] = "Unawares turn into Traitors after killing high-value players (eg: Detectives)"
+L["label_ttt2_unaware_convert_from_bigkill"] = "Unawares turn into Traitors after killing high-value innocents (eg: Detectives)"
 L["label_ttt2_unaware_convert_from_kills"] = "(UNFINISHED) Unawares turn into traitors after killing this many innocents: "
 
 L["label_ttt2_unaware_search_credits"] = "Unawares can pick up credits from bodies while \"innocent\""
 L["label_ttt2_unaware_search_credits_notify"] = "Unawares receive alerts when picking up credits from bodies while \"innocent\""
 
 -- OTHER ROLE LANGUAGE STRINGS
-L["inform_everyone_unaware"] = "Someone is unaware they're a traitor!"
-L["inform_traitors_unaware"] = [[One of your comrades is unaware they're a traitor. 
+L["unaware_inform_everyone"] = "Someone is unaware they're a traitor!"
+L["unaware_inform_traitors"] = [[One of your comrades is unaware they're a traitor. 
 Help them out by letting them know their role!]]
 
-L["inform_unaware"] = "You've realised your true role!"
+L["unaware_inform_self"] = "You've realised your true role!"
 
 L["ttt2_teamchat_jammed_" .. UNAWARE.name] = "You cannot use the team text chat whilst a Traitor is unaware!"
 L["ttt2_teamvoice_jammed_" .. UNAWARE.name] = "You cannot use the team voice chat whilst a Traitor is unaware!"
@@ -74,8 +74,8 @@ L["unaware_hint_traitor_body"] = "There's a note with your name on it: \"{flavor
 
 L["unaware_hint_traitor_dna"] = "The killer left a note for you: \"{flavor}\""
 
-L["Unaware_hint_flavor_0"] = "Finish the job."
-L["Unaware_hint_flavor_1"] = "Don't forget."
-L["Unaware_hint_flavor_2"] = "You owe me."
-L["Unaware_hint_flavor_3"] = "Do not let us down."
-L["Unaware_hint_flavor_4"] = "You can stop playing around now."
+L["unaware_hint_flavor_0"] = "Finish the job."
+L["unaware_hint_flavor_1"] = "Don't forget."
+L["unaware_hint_flavor_2"] = "You owe me."
+L["unaware_hint_flavor_3"] = "Do not let us down."
+L["unaware_hint_flavor_4"] = "You can stop playing around now."
